@@ -1,9 +1,9 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
-import { TodosModule } from './todos/todos.module.js';
+import { TodosGatewayModule } from './gateway/todos-gateway.module.js';
 import { LoggingMiddleware } from './common/middleware/logging.middleware.js';
 
 @Module({
-  imports: [TodosModule],
+  imports: [TodosGatewayModule],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
