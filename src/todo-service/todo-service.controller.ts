@@ -1,5 +1,6 @@
 import { Controller, Inject } from '@nestjs/common';
 import { MessagePattern, Payload, ClientProxy } from '@nestjs/microservices';
+import { CreateTodoDto } from '../common/dto/create-todo.dto.js';
 
 export interface Todo {
   id: number;
@@ -26,7 +27,7 @@ export class TodoServiceController {
   }
 
   @MessagePattern({ cmd: 'create_todo' })
-  createTodo(@Payload() data: { title: string }): Todo {
+  createTodo(@Payload() data: CreateTodoDto): Todo {
     console.log('📥 [Todo Microservice] Received TCP message: create_todo with data:', data);
     const newTodo: Todo = {
       id: this.todos.length + 1,
