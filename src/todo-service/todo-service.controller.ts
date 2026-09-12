@@ -1,5 +1,5 @@
-import { Controller } from '@nestjs/common';
-import { MessagePattern, Payload } from '@nestjs/microservices';
+import { Controller, Inject } from '@nestjs/common';
+import { MessagePattern, Payload, ClientProxy } from '@nestjs/microservices';
 
 export interface Todo {
   id: number;
@@ -9,6 +9,10 @@ export interface Todo {
 
 @Controller()
 export class TodoServiceController {
+  constructor(
+    @Inject('REDIS_SERVICE') private readonly redisClient: ClientProxy,
+  ) {}
+
   // In-memory data store for this microservice (isolated DB simulation)
   private todos: Todo[] = [
     { id: 1, title: 'Learn Microservices Architecture', completed: false },
@@ -30,6 +34,12 @@ export class TodoServiceController {
       completed: false,
     };
     this.todos.push(newTodo);
+
+    // 🔥 ASYNCHRONOUS EVENT (FIRE-AND-FORGET)
+    // We emit to Redis Pub/Sub without awaiting. We don't block the caller!
+    console.log('📤 [Todo Microservice] Emitting async event "todo.created" to Redis...');
+    this.redisClient.emit('todo.created', newTodo);
+
     return newTodo;
   }
 }
