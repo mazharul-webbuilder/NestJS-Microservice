@@ -1,5 +1,5 @@
 import { Controller, Inject } from '@nestjs/common';
-import { MessagePattern, Payload, ClientProxy } from '@nestjs/microservices';
+import { MessagePattern, Payload, ClientProxy, RpcException } from '@nestjs/microservices';
 import { CreateTodoDto } from '../common/dto/create-todo.dto.js';
 
 export interface Todo {
@@ -24,6 +24,28 @@ export class TodoServiceController {
   getTodos(): Todo[] {
     console.log('📥 [Todo Microservice] Received TCP message: get_todos');
     return this.todos;
+  }
+
+  // 🐢 Simulated Slow RPC: Demonstrates how timeouts catch lagging services
+  @MessagePattern({ cmd: 'get_todos_slow' })
+  async getTodosSlow(): Promise<Todo[]> {
+    console.log('⏳ [Todo Microservice] Received get_todos_slow. Simulating 5-second delay...');
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+    return this.todos;
+  }
+
+  // 🎯 RPC Error Handling: Demonstrates throwing RpcException across TCP
+  @MessagePattern({ cmd: 'get_todo_by_id' })
+  getTodoById(@Payload() id: number): Todo {
+    console.log(`📥 [Todo Microservice] Received TCP message: get_todo_by_id for ID: ${id}`);
+    const todo = this.todos.find((t) => t.id === Number(id));
+    if (!todo) {
+      throw new RpcException({
+        statusCode: 404,
+        message: `Todo with ID #${id} not found in Todo Microservice`,
+      });
+    }
+    return todo;
   }
 
   @MessagePattern({ cmd: 'create_todo' })
