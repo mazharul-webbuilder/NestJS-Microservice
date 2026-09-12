@@ -1,114 +1,170 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# 🚀 NestJS Microservices Architecture
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+A comprehensive, production-ready reference project demonstrating modern **Microservices Patterns**, **Distributed Systems**, and **Resilient Communication** built with [NestJS](https://nestjs.com).
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+---
 
-## Description
+## 🏛️ System Architecture
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+```mermaid
+flowchart TD
+    Client(["🌐 Client / Frontend / api.http"])
 
-## Project setup
+    subgraph Gateway ["🚪 API Gateway (Port 3000)"]
+        HTTP["REST Endpoints<br/>/api/todos"]
+        Validation["🛡️ ValidationPipe (class-validator)"]
+        Resilience["⏱️ RxJS Timeout (2s) & Fallback"]
+    end
 
-```bash
-$ npm install
+    subgraph TodoService ["📝 Todo Microservice (Port 3001)"]
+        TCP["TCP Server<br/>@MessagePattern"]
+        DB[("💾 Isolated In-Memory Store")]
+    end
+
+    subgraph Broker ["⚡ Redis Server (Port 6379)"]
+        PubSub["Pub/Sub Channel: 'todo.created'"]
+    end
+
+    subgraph NotificationService ["🔔 Notification Microservice"]
+        Sub["Redis Subscriber<br/>@EventPattern"]
+    end
+
+    Client -->|HTTP Request| HTTP
+    HTTP --> Validation
+    Validation --> Resilience
+    Resilience -->|1. Synchronous RPC (TCP)| TCP
+    TCP --> DB
+    TCP -.->|2. Async Event Emit (Fire-and-Forget)| PubSub
+    PubSub -.->|3. Real-Time Broadcast| Sub
 ```
 
-## Compile and run the project
+---
 
+## 🔑 Core Concepts & Patterns Implemented
+
+### 1. API Gateway Pattern (`Port 3000`)
+* **File:** `src/main.ts` & `src/gateway/todos-gateway.controller.ts`
+* Acts as the single public entry point for clients, routing external REST requests to internal microservices over TCP.
+
+### 2. Synchronous RPC via TCP (`Request-Response`)
+* **File:** `src/todo-microservice.ts` & `src/todo-service/todo-service.controller.ts` (`Port 3001`)
+* Uses `client.send({ cmd: '...' }, payload)` & `@MessagePattern()`.
+* The caller waits for the remote procedure to finish and return data.
+
+### 3. Asynchronous Event-Driven Architecture via Redis Pub/Sub (`Fire-and-Forget`)
+* **File:** `src/notification-microservice.ts` & `src/notification-service/notification-service.controller.ts` (`Port 6379`)
+* Uses `client.emit('todo.created', payload)` & `@EventPattern()`.
+* Decoupled broadcast: The Todo service emits the event and immediately responds to the user without waiting for notifications or emails to send.
+
+### 4. Gateway Firewall & Shared DTO Validation
+* **File:** `src/common/dto/create-todo.dto.ts`
+* Uses `class-validator` & `class-transformer` with `ValidationPipe`.
+* **Fail Fast at the Edge:** Rejects bad or malicious payloads (`400 Bad Request`) at the Gateway border before wasting internal network bandwidth or TCP sockets.
+
+### 5. Fault Tolerance & Resilient RPC (Timeouts & Fallbacks)
+* **File:** `src/gateway/todos-gateway.controller.ts` (`/api/todos/resilient`)
+* Uses RxJS `timeout(2000)` and `catchError()`.
+* If a downstream microservice hangs or crashes, the Gateway cuts the wait at 2 seconds and returns a **Graceful Fallback** instead of leaving users hanging or crashing with an HTTP 500.
+
+### 6. RPC Error Handling (`RpcException` ➔ `HttpException`)
+* Microservices throw `RpcException` over TCP.
+* The Gateway intercepts the error and translates it into clean HTTP status codes (e.g., `404 Not Found`).
+
+---
+
+## 🛠️ Prerequisites
+
+* **Node.js:** `>= 20.x`
+* **Redis Server:** Running on `127.0.0.1:6379`
+  * **Via Laragon:** Right-click Laragon tray icon ➔ **Redis** ➔ **Start Redis**
+  * **Or Docker:** `docker run -d -p 6379:6379 redis:alpine`
+
+---
+
+## 🚀 Getting Started
+
+### 1. Install Dependencies
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npm install
 ```
 
-## Run tests
+### 2. Run All 3 Services (in separate terminal windows)
 
 ```bash
-# unit tests
-$ npm run test
+# Terminal 1: API Gateway (HTTP REST on port 3000)
+npm run start:dev
 
-# e2e tests
-$ npm run test:e2e
+# Terminal 2: Todo Microservice (TCP on port 3001)
+npm run start:todo:dev
 
-# test coverage
-$ npm run test:cov
+# Terminal 3: Notification Microservice (Redis Pub/Sub on port 6379)
+npm run start:notification:dev
 ```
 
-## Deployment
+---
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+## 📡 API Endpoints & Testing
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+You can test all endpoints directly inside VS Code / Antigravity IDE using the included **[`api.http`](./api.http)** file (via the REST Client extension) or via `curl`:
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+| Method | Endpoint | Description | Pattern |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/todos` | Fetch all todos | Standard Synchronous TCP RPC |
+| `POST` | `/api/todos` | Create a todo | TCP RPC + Async Redis Pub/Sub |
+| `GET` | `/api/todos/resilient` | Fetch todos with 2s timeout protection | Resilient RPC |
+| `GET` | `/api/todos/resilient?slow=true` | Simulates 5s microservice lag | Triggers 2s Timeout ➔ Fallback response |
+| `GET` | `/api/todos/1` | Fetch Todo by ID | Synchronous TCP RPC |
+| `GET` | `/api/todos/999` | Non-existent Todo | Translates `RpcException` ➔ `HTTP 404` |
+
+---
+
+## 🧪 Testing Validation Rules
+
+Try posting these payloads to `/api/todos`:
+
+* **Title too short (< 3 characters):**
+  ```json
+  { "title": "Hi" }
+  ```
+  👉 *Returns `400 Bad Request: Title must be at least 3 characters long`*
+
+* **Unauthorized Injected Fields:**
+  ```json
+  { "title": "Valid title", "isAdmin": true }
+  ```
+  👉 *Returns `400 Bad Request: property isAdmin should not exist`*
+
+---
+
+## 📂 Project Structure
+
+```text
+nest-todo/
+├── api.http                                 # Ready-to-run HTTP testing file
+├── src/
+│   ├── main.ts                              # API Gateway HTTP entry point (:3000)
+│   ├── todo-microservice.ts                 # Todo TCP microservice entry point (:3001)
+│   ├── notification-microservice.ts         # Notification Redis microservice entry point (:6379)
+│   ├── app.module.ts                        # Gateway root module
+│   ├── common/
+│   │   ├── dto/
+│   │   │   └── create-todo.dto.ts           # Shared validation contract
+│   │   └── middleware/
+│   │       └── logging.middleware.ts        # HTTP request logging
+│   ├── gateway/
+│   │   ├── todos-gateway.controller.ts      # REST controller with RPC & resilience
+│   │   └── todos-gateway.module.ts          # Gateway client proxy registration
+│   ├── todo-service/
+│   │   ├── todo-service.controller.ts       # TCP message handlers & Redis event emitter
+│   │   └── todo-service.module.ts           # Todo module & Redis client registration
+│   └── notification-service/
+│       ├── notification-service.controller.ts # Redis event consumer (@EventPattern)
+│       └── notification-service.module.ts   # Notification module
+└── package.json
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+---
 
-## Observability
+## 📝 License
 
-In production applications, observability is essential for understanding how your system behaves, detecting issues early, and maintaining reliable performance.
-
-[NestJS Observe](https://observe.nestjs.com) automatically instruments your NestJS application, giving you deep visibility into your system with minimal setup:
-
-- **Distributed tracing:** Follow requests across services and understand how they flow through your system.
-- **Waterfall analysis:** Visualize request execution and identify slow operations, bottlenecks, and unexpected delays.
-- **Performance analysis:** Analyze application performance in real time and quickly pinpoint areas that need optimization.
-- **Metrics:** Track key application and infrastructure metrics to understand system health and performance trends.
-- **Logging:** Centralize and correlate logs with traces and other telemetry to make debugging easier.
-- **Error tracking:** Detect errors quickly and investigate their root causes with the surrounding context.
-- **SLA monitoring:** Track service-level objectives and identify when your application is approaching or exceeding defined thresholds.
-- **Alarms and alerts:** Set up alerts for critical errors, performance degradation, SLA violations, and other anomalies so your team can react quickly.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Auto-instrument your application with [NestJS Observer](https://observer.nestjs.com). Distributed tracing, metrics, and logging made easy. Error tracking and performance monitoring for your NestJS applications.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+This project is licensed under the [UNLICENSED](LICENSE) terms.
