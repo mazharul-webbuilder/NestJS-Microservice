@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
+import { BullModule } from '@nestjs/bullmq';
 import { TodosGatewayController } from './todos-gateway.controller.js';
 
 @Module({
@@ -14,6 +15,16 @@ import { TodosGatewayController } from './todos-gateway.controller.js';
         },
       },
     ]),
+    // 📬 BullMQ Connection for Gateway (Producer)
+    BullModule.forRoot({
+      connection: {
+        host: '127.0.0.1',
+        port: 6379,
+      },
+    }),
+    BullModule.registerQueue({
+      name: 'email-queue',
+    }),
   ],
   controllers: [TodosGatewayController],
 })

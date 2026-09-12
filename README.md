@@ -70,6 +70,12 @@ flowchart TD
 * Microservices throw `RpcException` over TCP.
 * The Gateway intercepts the error and translates it into clean HTTP status codes (e.g., `404 Not Found`).
 
+### 7. Persistent Message Queues via BullMQ (`Guaranteed Delivery`)
+* **Producer:** `TodosGatewayController` (`POST /api/todos/queue/email`)
+* **Consumer / Worker:** `EmailConsumer` (`src/notification-service/email.consumer.ts`)
+* **Inspection:** `GET /api/todos/queue/status`
+* **Solves the "Lost Event" Flaw:** Jobs are persisted in Redis with automatic retries and exponential backoff. Even if the Notification Worker is stopped, jobs wait safely in Redis and process immediately once the worker comes online.
+
 ---
 
 ## 🛠️ Prerequisites

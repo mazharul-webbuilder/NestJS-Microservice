@@ -11,6 +11,8 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { timeout, catchError, TimeoutError, of } from 'rxjs';
 import { CreateTodoDto } from '../common/dto/create-todo.dto.js';
 
@@ -18,6 +20,7 @@ import { CreateTodoDto } from '../common/dto/create-todo.dto.js';
 export class TodosGatewayController {
   constructor(
     @Inject('TODO_SERVICE') private readonly todoClient: ClientProxy,
+    @InjectQueue('email-queue') private readonly emailQueue: Queue,
   ) { }
 
   // =========================================================================
@@ -95,5 +98,57 @@ export class TodosGatewayController {
     console.log('🌐 [API Gateway] Forwarding validated payload to TCP Microservice...');
     // client.send() is SYNCHRONOUS RPC: sends message pattern and waits for response
     return this.todoClient.send({ cmd: 'create_todo' }, createTodoDto);
+  }
+
+  // =========================================================================
+  // 📬 NEW CHAPTER: Persistent Message Queue (BullMQ) Producer
+  // Pushes a durable job into Redis that SURVIVES worker restarts!
+  // =========================================================================
+  @Post('queue/email')
+  async queueEmailTask(
+    @Body() body: { to?: string; subject?: string; body?: string },
+  ) {
+    const jobData = {
+      to: body?.to || 'student@example.com',
+      subject: body?.subject || 'Welcome to Persistent Queues (BullMQ)',
+      body: body?.body || 'This email job is safely persisted in Redis and cannot be lost!',
+    };
+
+    console.log('📬 [API Gateway] Pushing durable job to BullMQ "email-queue"...');
+    const job = await this.emailQueue.add('send_welcome_email', jobData, {
+      attempts: 3, // Auto-retry 3 times if failed!
+      backoff: {
+        type: 'exponential',
+        delay: 2000, // 2s, then 4s, then 8s
+      },
+      removeOnComplete: false, // Keep in completed list so we can inspect it!
+    });
+
+    return {
+      status: 'queued',
+      message: 'Job persisted durably in Redis! Even if the worker is offline, it will process when restarted.',
+      jobId: job.id,
+      data: jobData,
+    };
+  }
+
+  // =========================================================================
+  // 🔍 NEW CHAPTER: Inspect Queue Status (Real-Time Job Counters)
+  // Shows how many jobs are waiting, active, completed, or failed in Redis!
+  // =========================================================================
+  @Get('queue/status')
+  async getQueueStatus() {
+    const counts = await this.emailQueue.getJobCounts(
+      'waiting',
+      'active',
+      'completed',
+      'failed',
+      'delayed',
+    );
+    return {
+      queueName: 'email-queue',
+      storage: 'Redis (127.0.0.1:6379)',
+      jobCounts: counts,
+    };
   }
 }

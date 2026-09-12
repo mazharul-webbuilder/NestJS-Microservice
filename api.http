@@ -1,0 +1,74 @@
+### Variables
+@baseUrl = http://localhost:3000/api
+
+### =========================================================================
+### 1. ORIGINAL METHOD: Standard Get Todos (Synchronous TCP)
+### =========================================================================
+GET {{baseUrl}}/todos
+Content-Type: application/json
+
+### =========================================================================
+### 2. ORIGINAL METHOD: Create Todo (TCP + Redis Pub/Sub intact!)
+### =========================================================================
+POST {{baseUrl}}/todos
+Content-Type: application/json
+
+{
+  "title": "Learn Fault Tolerance in Microservices"
+}
+
+### =========================================================================
+### 3. 🛡️ RESILIENT METHOD: Resilient Get (Normal / Fast)
+### Has 2s timeout protection active behind the scenes
+### =========================================================================
+GET {{baseUrl}}/todos/resilient
+Content-Type: application/json
+
+### =========================================================================
+### 4. ⏱️ RESILIENT METHOD: Resilient Get with SLOW SIMULATION (Hangs 5s)
+### Watch the 2000ms timeout trigger and return a Graceful Fallback!
+### =========================================================================
+GET {{baseUrl}}/todos/resilient?slow=true
+Content-Type: application/json
+
+### =========================================================================
+### 5. 🎯 ERROR HANDLING: Get Todo by ID (Found)
+### =========================================================================
+GET {{baseUrl}}/todos/1
+Content-Type: application/json
+
+### =========================================================================
+### 6. 🎯 ERROR HANDLING: Get Todo by ID (Not Found -> RpcException 404)
+### =========================================================================
+GET {{baseUrl}}/todos/999
+Content-Type: application/json
+
+### =========================================================================
+### 7. DTO VALIDATION: Title too short (< 3 chars) -> HTTP 400
+### =========================================================================
+POST {{baseUrl}}/todos
+Content-Type: application/json
+
+{
+  "title": "No"
+}
+
+### =========================================================================
+### 8. 📬 NEW CHAPTER: PUSH PERSISTENT JOB TO BULLMQ QUEUE
+### Pushes job into Redis. Survived even if Worker is offline!
+### =========================================================================
+POST {{baseUrl}}/todos/queue/email
+Content-Type: application/json
+
+{
+  "to": "mazharul@example.com",
+  "subject": "Order Confirmation #1001",
+  "body": "Thank you for your order! This job is safely stored in BullMQ."
+}
+
+### =========================================================================
+### 9. 🔍 NEW CHAPTER: CHECK QUEUE STATUS & JOB COUNTS
+### Returns counts of 'waiting', 'active', 'completed', 'failed' jobs
+### =========================================================================
+GET {{baseUrl}}/todos/queue/status
+Content-Type: application/json
