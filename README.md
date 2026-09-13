@@ -1,4 +1,4 @@
-# Ultimate NestJS Microservices Architecture & Learning Guide
+# NestJS Microservices Architecture & Learning Guide
 
 A comprehensive, production-grade reference and learning repository demonstrating modern **Microservices Communication Patterns**, **Multi-Broker Architecture**, **Fault Tolerance**, and **Event-Driven Distributed Systems** using [NestJS](https://nestjs.com).
 
