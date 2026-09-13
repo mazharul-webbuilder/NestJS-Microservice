@@ -27,6 +27,25 @@ import { TodoServiceController } from './todo-service.controller.js';
           },
         },
       },
+      // ⚡ Register Apache Kafka Producer Client
+      {
+        name: 'KAFKA_SERVICE',
+        transport: Transport.KAFKA,
+        options: {
+          client: {
+            brokers: ['daj4raq7294n2a8ct8j0.any.ap-south-1.mpx.prd.cloud.redpanda.com:9092'],
+            ssl: true,
+            sasl: {
+              mechanism: 'scram-sha-256',
+              username: 'mazharul',
+              password: 'NestMicroservice2026!',
+            },
+          },
+          producer: {
+            allowAutoTopicCreation: true,
+          },
+        },
+      },
     ]),
   ],
   controllers: [TodoServiceController],

@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Body,
   Inject,
   Param,
@@ -115,6 +116,21 @@ export class TodosGatewayController {
       catchError((err) => {
         const status = err?.statusCode || HttpStatus.INTERNAL_SERVER_ERROR;
         const message = err?.message || 'Error occurred while updating todo';
+        throw new HttpException({ statusCode: status, message }, status);
+      }),
+    );
+  }
+
+  // =========================================================================
+  // ⚡ NEW CHAPTER: Delete Todo (TCP RPC -> Kafka Event Stream to Redpanda)
+  // =========================================================================
+  @Delete(':id')
+  deleteTodo(@Param('id', ParseIntPipe) id: number) {
+    console.log(`🌐 [API Gateway] Forwarding DELETE /api/todos/${id} to TCP Microservice...`);
+    return this.todoClient.send({ cmd: 'delete_todo' }, id).pipe(
+      catchError((err) => {
+        const status = err?.statusCode || HttpStatus.INTERNAL_SERVER_ERROR;
+        const message = err?.message || 'Error occurred while deleting todo';
         throw new HttpException({ statusCode: status, message }, status);
       }),
     );

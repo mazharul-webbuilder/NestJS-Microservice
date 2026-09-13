@@ -4,8 +4,9 @@ import { NotificationServiceModule } from './notification-service/notification-s
 
 /**
  * 🔔 NOTIFICATION MICROSERVICE (Multi-Transport Consumer)
- * - Connects to Redis Pub/Sub (Port 6379) for 'todo.created' events
- * - Connects to RabbitMQ (CloudAMQP) for 'todo.updated' events with Manual ACKs (noAck: false)
+ * - 1. Redis Pub/Sub (Port 6379) for 'todo.created' events
+ * - 2. RabbitMQ (CloudAMQP) for 'todo.updated' events with Manual ACKs
+ * - 3. Apache Kafka (Redpanda Cloud) for 'todo.deleted' partitioned event stream
  */
 async function bootstrap() {
   const app = await NestFactory.create(NotificationServiceModule);
@@ -27,15 +28,37 @@ async function bootstrap() {
         'amqps://hzvmqvip:qKu9jZ0N5N3i4_uAze4Rx9Zj4C2TLnxb@warthog.lmq.cloudamqp.com/hzvmqvip',
       ],
       queue: 'todo_updates_queue',
-      noAck: false, // 💡 MANUAL ACKNOWLEDGMENT: Message is only deleted once worker confirms channel.ack()!
+      noAck: false, // 💡 MANUAL ACKNOWLEDGMENT
       queueOptions: {
-        durable: true, // Queue survives broker restarts
+        durable: true,
+      },
+    },
+  });
+
+  // 3. ⚡ Apache Kafka Transport (Redpanda Cloud)
+  app.connectMicroservice<MicroserviceOptions>({
+    transport: Transport.KAFKA,
+    options: {
+      client: {
+        brokers: ['daj4raq7294n2a8ct8j0.any.ap-south-1.mpx.prd.cloud.redpanda.com:9092'],
+        ssl: true,
+        sasl: {
+          mechanism: 'scram-sha-256',
+          username: 'mazharul',
+          password: 'NestMicroservice2026!',
+        },
+      },
+      consumer: {
+        groupId: 'notification-consumer-group', // Kafka Consumer Group
+      },
+      subscribe: {
+        fromBeginning: true,
       },
     },
   });
 
   await app.startAllMicroservices();
-  console.log('🚀 [Notification Microservice] Listening to Redis Pub/Sub (127.0.0.1:6379) & CloudAMQP (todo_updates_queue)');
+  console.log('🚀 [Notification Microservice] Listening to Redis, RabbitMQ & Kafka (Redpanda Cloud)!');
 }
 
 await bootstrap();

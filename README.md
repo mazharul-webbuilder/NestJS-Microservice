@@ -81,6 +81,11 @@ flowchart TD
 * **Consumer:** `NotificationServiceController` (`@EventPattern('todo.updated')` with `RmqContext`)
 * **Guaranteed Delivery with Manual ACKs (`noAck: false`):** Messages remain in the queue until the worker explicitly executes `channel.ack(originalMsg)`. If a worker crashes midway, RabbitMQ instantly redelivers the message to another active worker.
 
+### 9. Distributed Event Streaming via Apache Kafka (`Partitions & Offsets`)
+* **Producer:** `TodoServiceController` (`DELETE /api/todos/:id` ➔ Streams to topic `todo.deleted`)
+* **Consumer:** `NotificationServiceController` (`@EventPattern('todo.deleted')` with `KafkaContext`)
+* **Horizontal Scalability:** Events are partitioned by key, distributed across consumer groups, and persisted with immutable sequential offsets.
+
 ---
 
 ## 🛠️ Prerequisites
@@ -88,6 +93,7 @@ flowchart TD
 * **Node.js:** `>= 20.x`
 * **Redis Server:** Running on `127.0.0.1:6379`
 * **RabbitMQ Server:** CloudAMQP instance or local RabbitMQ (`amqps://...`)
+* **Kafka Cluster:** Redpanda Cloud / Apache Kafka (`SASL_SSL`)
 
 ---
 
@@ -107,7 +113,7 @@ npm run start:dev
 # Terminal 2: Todo Microservice (TCP on port 3001)
 npm run start:todo:dev
 
-# Terminal 3: Notification Microservice (Redis Pub/Sub on port 6379 & RabbitMQ)
+# Terminal 3: Notification Microservice (Redis Pub/Sub, RabbitMQ & Kafka)
 npm run start:notification:dev
 ```
 
@@ -122,6 +128,7 @@ You can test all endpoints directly inside VS Code / Antigravity IDE using the i
 | `GET` | `/api/todos` | Fetch all todos | Standard Synchronous TCP RPC |
 | `POST` | `/api/todos` | Create a todo | TCP RPC + Async Redis Pub/Sub |
 | `PATCH` | `/api/todos/:id` | Update a todo | TCP RPC + RabbitMQ with Manual ACKs |
+| `DELETE` | `/api/todos/:id` | Delete a todo | TCP RPC + Kafka Partitioned Stream |
 | `GET` | `/api/todos/resilient` | Fetch todos with 2s timeout protection | Resilient RPC |
 | `GET` | `/api/todos/resilient?slow=true` | Simulates 5s microservice lag | Triggers 2s Timeout ➔ Fallback response |
 | `GET` | `/api/todos/1` | Fetch Todo by ID | Synchronous TCP RPC |

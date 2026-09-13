@@ -13,6 +13,7 @@ export class TodoServiceController {
   constructor(
     @Inject('REDIS_SERVICE') private readonly redisClient: ClientProxy,
     @Inject('RABBITMQ_SERVICE') private readonly rabbitClient: ClientProxy,
+    @Inject('KAFKA_SERVICE') private readonly kafkaClient: ClientProxy,
   ) {}
 
   // In-memory data store for this microservice (isolated DB simulation)
@@ -93,5 +94,36 @@ export class TodoServiceController {
     });
 
     return todo;
+  }
+
+  // =========================================================================
+  // ⚡ NEW CHAPTER: Delete Todo & Stream Event to Apache Kafka (Redpanda)
+  // =========================================================================
+  @MessagePattern({ cmd: 'delete_todo' })
+  deleteTodo(@Payload() id: number): { success: boolean; deletedTodo: Todo } {
+    console.log(`📥 [Todo Microservice] Received TCP message: delete_todo for ID: ${id}`);
+    const index = this.todos.findIndex((t) => t.id === Number(id));
+    if (index === -1) {
+      throw new RpcException({
+        statusCode: 404,
+        message: `Todo with ID #${id} not found to delete`,
+      });
+    }
+
+    const deleted = this.todos.splice(index, 1)[0];
+
+    // ⚡ Stream Event to Kafka Topic: 'todo.deleted'
+    console.log('📤 [Todo Microservice] Streaming "todo.deleted" event to Apache Kafka cluster...');
+    this.kafkaClient.emit('todo.deleted', {
+      key: String(deleted.id), // Kafka Partition Key (guarantees same ID goes to same partition!)
+      value: {
+        id: deleted.id,
+        title: deleted.title,
+        deletedAt: new Date().toISOString(),
+        actor: 'ADMIN_USER',
+      },
+    });
+
+    return { success: true, deletedTodo: deleted };
   }
 }

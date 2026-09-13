@@ -86,3 +86,12 @@ Content-Type: application/json
   "completed": true
 }
 
+### =========================================================================
+### 11. ⚡ FINAL CHAPTER: APACHE KAFKA EVENT STREAMING (Redpanda Cloud)
+### Sends DELETE to Gateway -> TCP RPC to Todo Microservice -> Streams 'todo.deleted' 
+### to Kafka Partition Log -> Notification Consumer Group receives with Partition & Offset!
+### =========================================================================
+DELETE {{baseUrl}}/todos/1
+Content-Type: application/json
+
+
