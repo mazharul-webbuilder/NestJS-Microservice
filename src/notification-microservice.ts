@@ -3,25 +3,39 @@ import { Transport, MicroserviceOptions } from '@nestjs/microservices';
 import { NotificationServiceModule } from './notification-service/notification-service.module.js';
 
 /**
- * 🔔 NOTIFICATION MICROSERVICE (Redis Pub/Sub Subscriber)
- * - Acts as a CLIENT connecting to the Redis message broker (not an open server port).
- * - Port 6379 is Redis's port where this service connects to subscribe to events.
- * - Listens asynchronously for broadcasted events (e.g., todo_created) without blocking HTTP requests.
+ * 🔔 NOTIFICATION MICROSERVICE (Multi-Transport Consumer)
+ * - Connects to Redis Pub/Sub (Port 6379) for 'todo.created' events
+ * - Connects to RabbitMQ (CloudAMQP) for 'todo.updated' events with Manual ACKs (noAck: false)
  */
 async function bootstrap() {
-  const app = await NestFactory.createMicroservice<MicroserviceOptions>(
-    NotificationServiceModule,
-    {
-      transport: Transport.REDIS,
-      options: {
-        host: '127.0.0.1',
-        port: 6379, // Redis broker port (Notification connects TO this, doesn't open it)
+  const app = await NestFactory.create(NotificationServiceModule);
+
+  // 1. Redis Pub/Sub Transport
+  app.connectMicroservice<MicroserviceOptions>({
+    transport: Transport.REDIS,
+    options: {
+      host: '127.0.0.1',
+      port: 6379,
+    },
+  });
+
+  // 2. 🐇 RabbitMQ Transport (CloudAMQP)
+  app.connectMicroservice<MicroserviceOptions>({
+    transport: Transport.RMQ,
+    options: {
+      urls: [
+        'amqps://hzvmqvip:qKu9jZ0N5N3i4_uAze4Rx9Zj4C2TLnxb@warthog.lmq.cloudamqp.com/hzvmqvip',
+      ],
+      queue: 'todo_updates_queue',
+      noAck: false, // 💡 MANUAL ACKNOWLEDGMENT: Message is only deleted once worker confirms channel.ack()!
+      queueOptions: {
+        durable: true, // Queue survives broker restarts
       },
     },
-  );
+  });
 
-  await app.listen();
-  console.log('🚀 [Notification Microservice] Listening to Redis Pub/Sub on 127.0.0.1:6379');
+  await app.startAllMicroservices();
+  console.log('🚀 [Notification Microservice] Listening to Redis Pub/Sub (127.0.0.1:6379) & CloudAMQP (todo_updates_queue)');
 }
 
 await bootstrap();

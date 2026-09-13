@@ -12,6 +12,7 @@ export interface Todo {
 export class TodoServiceController {
   constructor(
     @Inject('REDIS_SERVICE') private readonly redisClient: ClientProxy,
+    @Inject('RABBITMQ_SERVICE') private readonly rabbitClient: ClientProxy,
   ) {}
 
   // In-memory data store for this microservice (isolated DB simulation)
@@ -64,5 +65,33 @@ export class TodoServiceController {
     this.redisClient.emit('todo.created', newTodo);
 
     return newTodo;
+  }
+
+  // =========================================================================
+  // 🐇 NEW CHAPTER: Update Todo & Publish Event to Cloud RabbitMQ
+  // =========================================================================
+  @MessagePattern({ cmd: 'update_todo' })
+  updateTodo(@Payload() payload: { id: number; title?: string; completed?: boolean }): Todo {
+    console.log(`📥 [Todo Microservice] Received TCP message: update_todo for ID: ${payload.id}`);
+    const todo = this.todos.find((t) => t.id === Number(payload.id));
+    if (!todo) {
+      throw new RpcException({
+        statusCode: 404,
+        message: `Todo with ID #${payload.id} not found to update`,
+      });
+    }
+
+    if (payload.title !== undefined) todo.title = payload.title;
+    if (payload.completed !== undefined) todo.completed = payload.completed;
+
+    // 🐇 Emit event to RabbitMQ (CloudAMQP)
+    console.log('📤 [Todo Microservice] Publishing "todo.updated" event to RabbitMQ...');
+    this.rabbitClient.emit('todo.updated', {
+      todo,
+      updatedAt: new Date().toISOString(),
+      action: 'UPDATE',
+    });
+
+    return todo;
   }
 }

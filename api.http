@@ -72,3 +72,17 @@ Content-Type: application/json
 ### =========================================================================
 GET {{baseUrl}}/todos/queue/status
 Content-Type: application/json
+
+### =========================================================================
+### 10. 🐇 NEW CHAPTER: RABBITMQ EVENT-DRIVEN UPDATE + MANUAL ACK
+### Sends PATCH to Gateway -> TCP RPC to Todo Microservice -> Emits 'todo.updated' 
+### to CloudAMQP -> Notification Microservice consumes and sends manual ACK!
+### =========================================================================
+PATCH {{baseUrl}}/todos/1
+Content-Type: application/json
+
+{
+  "title": "Mastering RabbitMQ with Manual ACKs",
+  "completed": true
+}
+

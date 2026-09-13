@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Body,
   Inject,
   Param,
@@ -15,6 +16,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { timeout, catchError, TimeoutError, of } from 'rxjs';
 import { CreateTodoDto } from '../common/dto/create-todo.dto.js';
+import { UpdateTodoDto } from '../common/dto/update-todo.dto.js';
 
 @Controller('todos')
 export class TodosGatewayController {
@@ -98,6 +100,24 @@ export class TodosGatewayController {
     console.log('🌐 [API Gateway] Forwarding validated payload to TCP Microservice...');
     // client.send() is SYNCHRONOUS RPC: sends message pattern and waits for response
     return this.todoClient.send({ cmd: 'create_todo' }, createTodoDto);
+  }
+
+  // =========================================================================
+  // 🐇 NEW CHAPTER: Update Todo (TCP RPC -> RabbitMQ Event Emit & Manual ACK)
+  // =========================================================================
+  @Patch(':id')
+  updateTodo(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateTodoDto: UpdateTodoDto,
+  ) {
+    console.log(`🌐 [API Gateway] Forwarding PATCH /api/todos/${id} to TCP Microservice with payload:`, updateTodoDto);
+    return this.todoClient.send({ cmd: 'update_todo' }, { id, ...updateTodoDto }).pipe(
+      catchError((err) => {
+        const status = err?.statusCode || HttpStatus.INTERNAL_SERVER_ERROR;
+        const message = err?.message || 'Error occurred while updating todo';
+        throw new HttpException({ statusCode: status, message }, status);
+      }),
+    );
   }
 
   // =========================================================================
