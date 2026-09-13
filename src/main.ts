@@ -3,6 +3,12 @@ import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module.js';
 import { LoggingMiddleware } from './common/middleware/logging.middleware.js';
 
+/**
+ * 🌐 API GATEWAY (HTTP Server)
+ * - Acts as the entry point for frontend clients / browsers.
+ * - Listens on an HTTP port (default: 3000).
+ * - Routes incoming requests to downstream microservices via TCP / Redis.
+ */
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
