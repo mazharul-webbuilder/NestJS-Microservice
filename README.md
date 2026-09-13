@@ -32,10 +32,10 @@ flowchart TD
     Client -->|HTTP Request| HTTP
     HTTP --> Validation
     Validation --> Resilience
-    Resilience -->|1. Synchronous RPC (TCP)| TCP
+    Resilience -->|"1. Synchronous RPC (TCP)"| TCP
     TCP --> DB
-    TCP -.->|2. Async Event Emit (Fire-and-Forget)| PubSub
-    PubSub -.->|3. Real-Time Broadcast| Sub
+    TCP -.->|"2. Async Event Emit (Fire-and-Forget)"| PubSub
+    PubSub -.->|"3. Real-Time Broadcast"| Sub
 ```
 
 ---
